@@ -1,0 +1,11 @@
+<resources>
+
+    <string name="app_name">d2att Wallet Hack</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="menu_settings">Settings</string>
+    <string name="title_activity_main">Hack Wallet</string>
+    <string name="hack_d2att_wallet">Hack d2att Wallet!</string>
+    <string name="apply_hack">Apply Hack</string>
+    <string name="undo_hack">Undo Hack</string>
+
+</resources>
