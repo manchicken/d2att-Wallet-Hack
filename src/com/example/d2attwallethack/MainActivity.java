@@ -5,10 +5,13 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.util.Properties;
 import java.util.concurrent.TimeoutException;
 
+import org.apache.commons.io.LineIterator;
+
+import com.stericson.RootTools.CommandCapture;
 import com.stericson.RootTools.RootTools;
 
 import android.os.Bundle;
@@ -24,7 +27,7 @@ import android.widget.TextView;
  *
  */
 public class MainActivity extends Activity {
-	protected boolean FAKE_IT = true;
+	protected boolean FAKE_IT = false;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -43,9 +46,11 @@ public class MainActivity extends Activity {
 					e.printStackTrace();
 				} catch (InterruptedException e) {
 					// TODO Auto-generated catch block
+					MainActivity.this.logIt("Got exception. Poop.");
 					e.printStackTrace();
 				} catch (TimeoutException e) {
 					// TODO Auto-generated catch block
+					MainActivity.this.logIt("Got exception. Poop.");
 					e.printStackTrace();
 				}
 			}
@@ -55,7 +60,21 @@ public class MainActivity extends Activity {
 			
 			@Override
 			public void onClick(View v) {
-				MainActivity.this.undoTheHack();
+				try {
+					MainActivity.this.undoTheHack();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					MainActivity.this.logIt("Got exception. Poop.");
+					e.printStackTrace();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					MainActivity.this.logIt("Got exception. Poop.");
+					e.printStackTrace();
+				} catch (TimeoutException e) {
+					// TODO Auto-generated catch block
+					MainActivity.this.logIt("Got exception. Poop.");
+					e.printStackTrace();
+				}
 			}
 		});
     }
@@ -89,7 +108,7 @@ public class MainActivity extends Activity {
     }
     
     private String origFile() {
-    	return theFileName()+".orig";
+    	return "/system/"+theFileName()+".orig";
     }
     
     private String walletFile() {
@@ -116,17 +135,35 @@ public class MainActivity extends Activity {
     }
     
     private void hackTheFile(InputStream input, OutputStream output) throws IOException {
-    	Properties props = new Properties();
-    	props.load(input);
+    	LineIterator li = new LineIterator(new InputStreamReader(input));
     	
-    	props.setProperty("ro.product.model", "htc_jewel");
-    	props.setProperty("ro.product.name", "htc_jewel");
-    	props.setProperty("ro.product.device", "htc_jewel");
-
-    	props.store(output, null);
+//    	Properties props = new Properties();
+//    	props.load(input);
+//    	
+//    	props.setProperty("ro.product.model", "htc_jewel");
+//    	props.setProperty("ro.product.name", "htc_jewel");
+//    	props.setProperty("ro.product.device", "htc_jewel");
+//
+//    	props.store(output, null);
+    	String line = null;
+    	while (li.hasNext()) {
+    		line = li.next();
+    		if (line.startsWith("ro.product.model")) {
+    			line = "ro.product.model=htc_jewel";
+    		} else if (line.startsWith("ro.product.name")) {
+    			line = "ro.product.name=htc_jewel";
+    		} else if (line.startsWith("ro.product.device")) {
+    			line = "ro.product.device=htc_jewel";
+    		}
+    		
+    		output.write(line.getBytes());
+    		output.write("\n".getBytes());
+    	}
+    	
+    	return;
     }
     
-    public void undoTheHack() {
+    public void undoTheHack() throws InterruptedException, IOException, TimeoutException {
     	this.logIt("\nVerifying the possibility of the hack...");
     	
     	if (RootTools.isRootAvailable() && RootTools.isAccessGiven()) {
@@ -137,14 +174,16 @@ public class MainActivity extends Activity {
     	}
 
     	File curr = this.currentWorkingProps();
-    	File orig = new File(this.getExternalFilesDir(null), this.origFile());
+    	File orig = new File(this.getExternalFilesDir(DOWNLOAD_SERVICE), this.origFile());
     	
     	if (!orig.exists()) {
-    		this.logIt("The backup doesn't exist! (I looked here: "+orig+")");
+    		this.logIt("The backup doesn't exist! (I looked here: "+orig.getAbsolutePath()+")");
     	}
     	
-    	this.logIt("Copying '"+orig+"' to '"+curr+"'");
+    	this.logIt("Copying '"+orig+"' to '"+curr.getAbsolutePath()+"'");
     	RootTools.copyFile(orig.getAbsolutePath(), curr.getAbsolutePath(), true, false);
+    	
+    	this.fixCurrPerms(curr);
     	
     	this.logIt("Done.");
     }
@@ -166,9 +205,9 @@ public class MainActivity extends Activity {
     	makeDummyCopy();
     	
     	File curr = this.currentWorkingProps();
-    	File orig = new File(this.getExternalFilesDir(null), this.origFile());
+    	File orig = new File(this.getExternalFilesDir(DOWNLOAD_SERVICE), this.origFile());
     	
-    	this.logIt("Making backup of '"+curr+"' to orig '"+orig+"'");
+    	this.logIt("Making backup of '"+curr+"' to orig '"+orig.getAbsolutePath()+"'");
     	RootTools.copyFile(curr.getAbsolutePath(), orig.getAbsolutePath(), true, false);
 		
     	File wallet = this.getFileStreamPath(this.walletFile());
@@ -181,8 +220,15 @@ public class MainActivity extends Activity {
 		this.hackTheFile(currIn, walletOut);		
 		
 		this.logIt("Making '"+wallet+"' the current file '"+curr+"'");
-		RootTools.copyFile(wallet.getAbsolutePath(), curr.getAbsolutePath(), true, true);
+		RootTools.copyFile(wallet.getAbsolutePath(), curr.getAbsolutePath(), true, false);
+		
+		this.fixCurrPerms(curr);
 		
 		this.logIt("Done.");
+    }
+    
+    private void fixCurrPerms(File curr) throws InterruptedException, IOException, TimeoutException {
+		CommandCapture command = new CommandCapture(0, "chmod 644 "+curr.getAbsolutePath());
+		RootTools.getShell(true).add(command).waitForFinish();
     }
 }
